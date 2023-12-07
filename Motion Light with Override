@@ -31,14 +31,14 @@ blueprint:
                   entity:
                       domain: light
         no_motion_wait:
-          name: Wait time
-          description: Time to leave the light on after last motion is detected.
-          default: 120
-          selector:
-            number:
-              min: 0
-              max: 3600
-              unit_of_measurement: seconds
+            name: Wait time
+            description: Time to leave the light on after last motion is detected.
+            default: 120
+            selector:
+              number:
+                min: 0
+                max: 3600
+                unit_of_measurement: seconds
 
 variables:
   switchEntityVar: !input input_light_switch_entity
