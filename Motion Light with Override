@@ -60,7 +60,7 @@ action:
                 id: Motion Triggered
               - condition: state
                 entity_id: !input input_light_switch_entity
-                state: "on"
+                state: "off"
               - condition: template
                 value_template: >-
                   {{ as_timestamp(now()) -
@@ -76,7 +76,7 @@ action:
                 id: Motion Cleared
               - condition: state
                 entity_id: !input input_light_switch_entity
-                state: "on"
+                state: "off"
               - condition: template
                 value_template: >-
                   {{ as_timestamp(now()) -
