@@ -32,7 +32,7 @@ blueprint:
                       domain: light
 
 variables:
-  switchEntityVar: !input input_binary_switch_entity
+  switchEntityVar: !input input_light_switch_entity
   cooldownPeriodVar: !input cooldown_period
                     
 alias: Test Light Motion (Duplicate)
@@ -59,7 +59,7 @@ action:
               - condition: trigger
                 id: Motion Triggered
               - condition: state
-                entity_id: !input input_binary_switch_entity
+                entity_id: !input input_light_switch_entity
                 state: "off"
               - condition: template
                 value_template: >-
