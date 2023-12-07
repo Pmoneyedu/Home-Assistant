@@ -50,10 +50,6 @@ trigger:
     id: Motion Cleared
     from: "on"
     to: "off"
-    for:
-      hours: 0
-      minutes: 1
-      seconds: 0
 condition: []
 action:
   - choose:
