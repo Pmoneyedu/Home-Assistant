@@ -18,7 +18,7 @@ blueprint:
             - light
             - switch
           multiple: true
-    override_switch_entity:
+    light_switch_entity:
       name: Manual Override Switch
       description: The Manual Override switch disables ALL automations when on. This automation will only run if Manual Override is off.
       selector:
@@ -49,7 +49,7 @@ trigger:
       seconds: !input no_motion_wait
 condition:
   - condition: state
-    entity_id: !input override_binary_sensor_entity
+    entity_id: !input input_light_switch_entity
     state: 'off'
   - condition: not
     conditions:
