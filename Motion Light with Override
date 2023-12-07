@@ -44,7 +44,7 @@ trigger:
     id: Motion Triggered
     from: "off"
     to: "on"
-      - platform: state
+  - platform: state
     entity_id:
       - !input input_motion_sensor_entity
     id: Motion Cleared
