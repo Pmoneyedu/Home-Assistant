@@ -44,6 +44,10 @@ trigger:
     id: Motion Triggered
     from: "off"
     to: "on"
+    for:
+      hours: 0
+      minutes: 1
+      seconds: 0
   - platform: state
     entity_id:
       - !input input_motion_sensor_entity
