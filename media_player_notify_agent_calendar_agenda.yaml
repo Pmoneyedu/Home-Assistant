@@ -133,6 +133,7 @@ action:
   service: tts.speak
   data:
     entity_id: !input media_player_service
+    title: '{{ now().strftime(''%A'') }} Agenda'
     message: "{{ agent.response.speech.plain.speech }}"
     language: en
     cache: false
