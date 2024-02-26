@@ -1,0 +1,42 @@
+blueprint:
+  name: Daily Conversation agent Agenda Notification
+  description:
+    Conversation agent generates a personalized notification based on the
+    upcoming calendar agenda, location, and weather information in your language.
+  domain: automation
+  input:
+  # ... (rest of the input fields)
+    text_helper:
+      name: Text Helper
+      description: Text helper for notification message (optional)
+      selector:
+        entity:
+          domain: input_text
+      default: ""
+
+trigger:
+  platform: time
+  at: !input notify_time
+
+action:
+  - variables:
+  # ... (rest of the variables)
+      text_helper: !input text_helper
+  # ... (rest of the actions)
+  - alias: "Store notification text in text helper"
+    choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ text_helper != '' }}"
+        sequence:
+          - service: input_text.set_value
+            target:
+              entity_id: "{{ text_helper }}"
+            data:
+              value: "{{ agent.response.speech.plain.speech | truncate(255) }}" # Limit to 255 characters
+  - alias: "Send notification"
+    service: !input notify_service
+    data:
+      target: !input notify_target
+      title: "{{ now().strftime('%A') }} Agenda"
+      message: "{{ agent.response.speech.plain.speech }}"
