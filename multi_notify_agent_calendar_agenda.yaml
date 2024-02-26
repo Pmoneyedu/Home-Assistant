@@ -1,0 +1,211 @@
+# https://gist.github.com/allenporter/e70d9eb090c7dbdd593cf526e07b4abe
+blueprint:
+  name: Daily Conversation Agent Agenda Notification
+  description: |
+    Conversation agent generates a personalized notification based on the
+    upcoming calendar agenda, birthday reminders, location, and weather information in your language.
+  domain: automation
+  input:
+    language:
+      name: Language
+      description: Language of Assistant Response
+      selector:
+        language:
+      default: "en"
+    user:
+      name: User
+      description: User who is being addressed
+      selector:
+        entity:
+          multiple: false
+          filter:
+            domain:
+              - person
+    notify_time:
+      name: Notification time
+      description: Time the automation is triggered to send the notification.
+      selector:
+        time: {}
+      default: 07:00:00
+    notify_service:
+      name: Notify service name
+      description: The name of the notify service where the notification should be sent.
+      selector:
+        text: {}
+      default: notify.notify
+    notify_target:
+      name: Notify target
+      description: The target of the notify service.
+      selector:
+        text: {}
+      default:
+    calendar_entities:
+      name: Calendar
+      description: The calendar entity to use for finding upcoming calendar events.
+      selector:
+        entity:
+          multiple: true
+          filter:
+            domain:
+              - calendar
+    calendar_duration:
+      name: Calendar Event duration
+      description: How many hours ahead to look for upcoming calendar events.
+      selector:
+        duration:
+      default:
+        hours: 18
+    birthday_calendar:
+      name: Birthday Calendar
+      description: The calendar entity to use for finding upcoming birthdays.
+      selector:
+        entity:
+          multiple: false
+          filter:
+            domain:
+              - calendar
+    birthday_duration:
+      name: Birthday Reminder duration
+      description: How many days ahead to look for upcoming birthdays.
+      selector:
+        duration:
+      default:
+        hours: 168 #7d
+    weather_entity:
+      name: Weather Entity
+      description: The weather entity to use for upcoming weather forecast.
+      selector:
+        entity:
+          multiple: false
+          filter:
+            domain:
+              - weather
+    zone_entity:
+      name: Home Zone Entity
+      description: The zone entity to use to determine approximate location for understanding typical weather.
+      selector:
+        entity:
+          multiple: false
+          filter:
+            domain:
+              - zone
+    conversation_agent:
+      name: Conversation Agent
+      selector:
+        conversation_agent:
+    user_prompt_task:
+      name: Conversation Agent Task
+      selector:
+        text:
+          multiline: true
+          type: text
+      default: |-
+        Please generate a short text (~100 words, no newlines) for a notification for an android smartphone with helpful information.
+
+trigger:
+  platform: time
+  at: !input notify_time
+
+action:
+  - variables:
+      language: !input language
+      user: !input user
+      weather_entity: !input weather_entity
+      calendar_entities: !input calendar_entities
+      zone_entity: !input zone_entity
+      calendar_duration: !input calendar_duration
+      birthday_calendar: !input birthday_calendar
+      birthday_duration: !input birthday_duration
+      user_prompt_task: !input user_prompt_task
+  - alias: Fetch Calendar Agenda
+    service: calendar.get_events
+    data:
+      duration: !input calendar_duration
+    target:
+      entity_id: !input calendar_entities
+    response_variable: events_responses
+  - alias: Fetch Birthday Calendar
+    service: calendar.get_events
+    data:
+      duration: !input birthday_duration
+    target:
+      entity_id: !input birthday_calendar
+    response_variable: birthday_responses
+  - alias: "Prepare Prompt"
+    variables:
+      prompt: |-
+
+
+        # You are a helpful personal agent that generates notifications for the user:
+
+        - You should respond in the RFC 5646 language: "{{language}}"
+        - Your answers are helpful, friendly, warm, insightful.
+        - Your answers are not technical, and do not include Home Assistant internal details such as entities in responses.
+        - Your messages help the user prepare for their day, for example:
+        - Making note of unusual weather for the location and time of year (but not mundane details like "0% chance of precipitation"). 
+        - Do not tell the user his location or the current time.
+        - How much time remaining until their first meeting
+        - Anything that may be special or unique, such as celebrating a birthday (but not that there are no birthdays)
+
+        # Information to include in the notification:
+
+        Name of User: {{ state_attr(user, "friendly_name") }}
+
+        Time: {{ now().time().isoformat('minutes') }}
+
+        {%- if zone_entity is defined %}
+        Latitude: {{ state_attr(zone_entity, 'latitude') | round(1) }}
+        Longitude: {{ state_attr(zone_entity, 'longitude') | round(1) }}
+        {% endif %}
+
+        {%- if weather_entity is defined %}
+        {%- set forecast = state_attr(weather_entity, 'forecast')[0] %}
+        {%- set temperature_unit = state_attr(weather_entity, 'temperature_unit') -%}
+        Weather: {{ forecast.condition }} ({{ forecast.temperature }}{{ temperature_unit }}, {{ forecast.precipitation }}% precipitation)
+        {%- endif %}
+
+        # Upcoming calendar events:
+        {%- for calendar_entity in calendar_entities %}
+          Calendar "{{ state_attr(calendar_entity, 'friendly_name') }}" events for the next {{ calendar_duration.hours }} hours:
+          {%- set agenda = events_responses[calendar_entities[loop.index0]] %}
+          {%- if "events" in agenda and agenda.events %}
+            {%- for event in agenda.events %}
+            - Summary: {{ event.summary }}
+              Start-End: {% if event.start is defined %}{{ event.start }} to {{ event.end }}{% else %}All Day{% endif %}
+              {%- if event.descripton is defined %}
+              Descripton: {{ event.descripton }}
+              {% endif -%}
+              {%- if event.location is defined %}
+                Location: {{ event.location }}
+              {% endif -%}
+            {%- endfor %}
+          {%- else %}
+            - No upcoming events.
+          {%- endif %}
+        {%- endfor %}
+
+        # Upcoming birthdays:
+        {%- set birthdays = birthday_responses[birthday_calendar] %}
+        {%- if "events" in birthdays and birthdays.events %}
+          {%- for event in birthdays.events %}
+          - Birthday Reminder: {{ event.summary }} on {{ event.start }}
+          {%- endfor %}
+        {%- else %}
+          - No upcoming birthdays.
+        {%- endif %}
+
+        # Task:
+
+        {{ user_prompt_task }}
+  - alias: "Conversation Agent Notification Text"
+    service: conversation.process
+    data:
+      text: "{{ prompt }}"
+      agent_id: !input conversation_agent
+    response_variable: agent
+  - alias: "Send notification"
+    service: !input notify_service
+    data:
+      target: !input notify_target
+      title: "{{ now().strftime('%A') }} Agenda"
+      message: "{{ agent.response.speech.plain.speech }}"
